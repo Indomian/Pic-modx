@@ -1,5 +1,10 @@
 Changelog for Pic.
 
+Pic 1.0.0-beta1 (April 09, 2014)
+====================================
+ - New build script
+ - Add image resize with side fields
+
 Pic 0.3.0-beta1 (May 14, 2013)
 ====================================
  - Fully covered with unit tests.
