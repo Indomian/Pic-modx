@@ -67,16 +67,21 @@ if(!isset($params['mode'])) {
 } elseif(!in_array($params['mode'],array('crop','croptop','scale','stretch','fields'))) {
 	throw new Exception('WRONG RESIZE MODE');
 }
+$params['width']=intval($params['width']);
+$params['height']=intval($params['height']);
 if(file_exists(PIC_CACHE_SITE_ROOT.$params['src']) && is_file(PIC_CACHE_SITE_ROOT.$params['src'])) {
 	$sSizeFile='';
 	if($params['width']!='') {
-		$sSizeFile.=intval($params['width']);
+		$sSizeFile.=$params['width'];
 	}
 	$sSizeFile.='x';
 	if($params['height']!='') {
-		$sSizeFile.=intval($params['height']);
+		$sSizeFile.=$params['height'];
 	}
 	$sSizeFile.='-'.$params['mode'];
+	if(isset($params['fPosition'])) {
+		$sSizeFile.='-'.$params['fPosition'];
+	}
 	$cacheDir=PIC_CACHE_PATH.$params['src'].'/';
 	$cacheFile=PIC_CACHE_PATH_URL.$params['src'].'/'.$sSizeFile.'.jpeg';
 	$cachePath=PIC_CACHE_PATH.$params['src'].'/'.$sSizeFile.'.jpeg';
@@ -97,27 +102,31 @@ if(file_exists(PIC_CACHE_SITE_ROOT.$params['src']) && is_file(PIC_CACHE_SITE_ROO
 				}
 			}
 			if($params['width']=='' && $params['height']=='') {
-				$obMode=new CScaleCopy(0,0);
+				//$obMode=new CScaleCopy(0,0);
+				return 'Size should be set';
 			} else {
 				switch($params['mode']) {
 					case 'stretch':
-						$obMode=new CRectGenerator(intval($params['width']),intval($params['height']));
+						$obMode=new CRectGenerator($params['width'],$params['height']);
 					break;
 					case 'crop':
-						$obMode=new CCropToCenter(intval($params['width']),intval($params['height']));
+						$obMode=new CCropToCenter($params['width'],$params['height']);
 					break;
 					case 'croptop':
-						$obMode=new CCropToTop(intval($params['width']),intval($params['height']));
+						$obMode=new CCropToTop($params['width'],$params['height']);
 					break;
 					case 'fields':
-						$obMode=new CFieldsCrop(intval($params['width']),intval($params['height']));
+						$obMode=new CFieldsCrop($params['width'],$params['height']);
+						if(isset($params['fPosition'])) {
+							$obMode->setPosition($params['fPosition']);
+						}
 						if(isset($params['bgcolor']))
 							$obImage->SetBackgroundColor($params['bgcolor']);
 						else
 							$obImage->SetBackgroundColor(0,0,0);
 					break;
 					default:
-						$obMode=new CScale(intval($params['width']),intval($params['height']));
+						$obMode=new CScale($params['width'],$params['height']);
 				}
 			}
 			if($obImage->Resize($obMode)) {
