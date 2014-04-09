@@ -1,0 +1,11 @@
+Changelog for Pic.
+
+Pic 0.3.0-beta1 (May 14, 2013)
+====================================
+ - Fully covered with unit tests.
+ - Fixed bug with too big images.
+ - Optimized code.
+
+Pic 0.2.1-pl1 (March 22, 2013)
+====================================
+ - Initial release.
