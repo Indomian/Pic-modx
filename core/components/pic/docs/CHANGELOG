@@ -1,5 +1,15 @@
 Changelog for Pic.
 
+Pic 1.1.1-pl (January 30, 2015)
+====================================
+ - Add check if cached file changed
+
+Pic 1.1.0-beta1 (October 09, 2014)
+====================================
+ - Add transparent color (bgcolor=`transparent`)
+ - Add image resize with max field (mode=`maxField`)
+ - Add hex mode (mode=`hexagon`)
+
 Pic 1.0.0-beta1 (April 09, 2014)
 ====================================
  - New build script
