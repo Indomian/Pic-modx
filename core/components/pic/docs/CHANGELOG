@@ -1,5 +1,11 @@
 Changelog for Pic.
 
+Pic 1.1.2-pl (February 10, 2015)
+====================================
+ - Small refactoring
+ - Add support of class version in cached file name
+ - Switch to main JPG mode and add autoswitch to PNG on transparent background
+
 Pic 1.1.1-pl (January 30, 2015)
 ====================================
  - Add check if cached file changed

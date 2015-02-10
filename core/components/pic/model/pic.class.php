@@ -25,6 +25,7 @@ include_once MODX_CORE_PATH.'components/pic/model/classes/CImageResizerHex.php';
 include_once MODX_CORE_PATH.'components/pic/model/classes/CImageResizerWatermark.php';
 
 class Pic {
+	const CLASS_VERSION=1;
 	public $sSiteRoot;
 	public $sCacheUrl;
 	public $sDefaultImg;
@@ -34,7 +35,8 @@ class Pic {
 	private $arSelfAttributes=array(
 		'src','mode','default','bgcolor','link','tag',
 		'input','output','token','wm','angle','wm_pos',
-		'wm_padding','border','borderColor','type','fPosition'
+		'wm_padding','border','borderColor','type','fPosition',
+		'quality'
 	);
 
 	private $modx;
@@ -63,127 +65,49 @@ class Pic {
 		$attributes=$this->arSelfAttributes;
 		$attributes[]='width';
 		$attributes[]='height';
-		return md5(join('|',array_intersect_key($arParams,array_flip($attributes))));
+		return md5(join('|',array_intersect_key($arParams,array_flip($attributes))).'='.self::CLASS_VERSION);
 	}
 
-	public function Resize() {
+	private function getParams() {
 		$arParams=$this->scriptProperties;
-		if(!$this->getIsInitialized())
-			return '';
-		if(!isset($arParams['src']))
-			return '';
-		if(!isset($arParams['width']))
+		if(!isset($arParams['src'])) {
+			throw new Exception('No image src set');
+		}
+		if(!isset($arParams['width'])) {
 			$arParams['width']='';
-		if(!isset($arParams['height']))
+		}
+		if(!isset($arParams['height'])) {
 			$arParams['height']='';
+		}
 		if(!isset($arParams['type']) || !in_array($arParams['type'],array('png','jpg'))) {
+			$arParams['type']='jpg';
+		}
+		if(!isset($arParams['quality'])) {
+			$arParams['quality']=90;
+		}
+		if($arParams['width']=='' || $arParams['height']=='') {
+			unset($arParams['mode']);
+		}
+		if(!isset($arParams['mode'])) {
+			$arParams['mode']='';
+		} else {
+			if($arParams['mode']=='hexagon') {
+				$arParams['type']='png';
+			}
+		}
+		if(isset($arParams['bgcolor']) && $arParams['bgcolor']=='transparent') {
 			$arParams['type']='png';
 		}
-		$sAbsoluteFilePath=$this->sSiteRoot.$arParams['src'];
-		if(file_exists($sAbsoluteFilePath) && is_file($sAbsoluteFilePath)) {
-			if($arParams['width']=='')
-				unset($arParams['mode']);
-			if($arParams['height']=='')
-				unset($arParams['mode']);
-			if(!isset($arParams['mode']))
-				$arParams['mode']='';
-
-			$sSizeFile=$this->getHash($arParams);
-			$cacheDir=$this->sCachePath.$arParams['src'].'/';
-			$cacheFile=$this->sCacheUrl.$arParams['src'].'/'.$sSizeFile.'.'.$arParams['type'];
-			$cachePath=$this->sCachePath.$arParams['src'].'/'.$sSizeFile.'.'.$arParams['type'];
-			if(!file_exists($cachePath) || filemtime($cachePath)<filemtime($sAbsoluteFilePath)) {
-				//Такой файл не был закеширован или кэш старше чем сам файл, значит надо его создавать
-				try {
-					$obImage=new CImageResizer($sAbsoluteFilePath);
-					if(isset($arParams['wm'])) {
-						$sAbsoluteWatermarkFilePath=$this->sSiteRoot.$arParams['wm'];
-						if(file_exists($sAbsoluteWatermarkFilePath) && is_file($sAbsoluteWatermarkFilePath)) {
-							//Watermark
-							if(isset($arParams['wm_pos']) && isset($arParams['wm_padding']))
-								$obWM=new CWatermarkImageGenerator($sAbsoluteWatermarkFilePath,$arParams['wm_pos'],$arParams['wm_padding']);
-							elseif(isset($arParams['wm_pos']))
-								$obWM=new CWatermarkImageGenerator($sAbsoluteWatermarkFilePath,$arParams['wm_pos']);
-							else
-								$obWM=new CWatermarkImageGenerator($sAbsoluteWatermarkFilePath);
-							$obImage=new CImageResizerWaterMark($obImage,$obWM);
-						}
-					}
-					if($arParams['width']=='' && $arParams['height']=='') {
-						$obMode=new CScaleCopy(0,0);
-					} else {
-						$obMode=new CScale(intval($arParams['width']),intval($arParams['height']));
-						switch($arParams['mode']) {
-							case 'stretch':
-								$obMode=new CRectGenerator(intval($arParams['width']),intval($arParams['height']));
-								break;
-							case 'crop':
-								$obMode=new CCropToCenter(intval($arParams['width']),intval($arParams['height']));
-								break;
-							case 'croptop':
-								$obMode=new CCropToTop(intval($arParams['width']),intval($arParams['height']));
-								break;
-							case 'fields':
-								$obMode=new CFieldsCrop(intval($arParams['width']),intval($arParams['height']));
-								if(isset($arParams['fPosition'])) {
-									$obMode->setPosition($arParams['fPosition']);
-								}
-								if(isset($arParams['bgcolor']))
-									$obImage->SetBackgroundColor($arParams['bgcolor']);
-								else
-									$obImage->SetBackgroundColor(0,0,0);
-								break;
-							case 'maxField':
-								$obMode=new CMaxField(intval($arParams['width']),intval($arParams['height']));
-								break;
-							case 'hexagon':
-								$obMode=new CCropToTop(intval($arParams['width']),intval($arParams['height']));
-								$obImage=new CImageResizerHex($obImage);
-								if(isset($arParams['bgcolor'])) {
-									$obImage->SetBackgroundColor($arParams['bgcolor']);
-								} else {
-									$obImage->SetBackgroundColor(0,0,0);
-								}
-								if(isset($arParams['angle'])) {
-									$obImage->setAngle($arParams['angle']);
-								} else {
-									$obImage->setAngle(0);
-								}
-								if(isset($arParams['border'])) {
-									$obImage->setBorderWidth($arParams['border']);
-								}
-								if(isset($arParams['borderColor'])) {
-									$obImage->setBorderColor($arParams['borderColor']);
-								}
-								break;
-						}
-					}
-					if($obImage->Resize($obMode)) {
-						if(!file_exists($cacheDir))
-							if(!@mkdir($cacheDir,0755,true)) return '';
-						if($obImage->Save($cachePath,$arParams['type']))
-							chmod($cachePath,0655);
-						else
-							throw new Exception('SYSTEM_CANT_SAVE');
-					} else
-						throw new Exception('SYSTEM_CANT_RESIZE');
-				} catch (Exception $e) {
-					$this->modx->log(xPDO::LOG_LEVEL_ERROR,'system',$e->getMessage());
-					$cacheFile=$arParams['src'];
-				}
-			}
-		} elseif(isset($arParams['default']) && $arParams['default']!='') {
-			$cacheFile=$arParams['default'];
-			$cachePath=$this->sSiteRoot.$cacheFile;
-		} elseif($this->sDefaultImg!='') {
-			$cacheFile=$this->sDefaultImg;
-			$cachePath=$this->sSiteRoot.$cacheFile;
-		} else {
-			$cacheFile='';
-			$cachePath='';
+		if(!isset($arParams['default'])) {
+			$arParams['default']='';
 		}
-		if(isset($arParams['link']) && $arParams['link']==1)
+		return $arParams;
+	}
+
+	private function processResult($cacheFile,$cachePath,$arParams) {
+		if(isset($arParams['link']) && $arParams['link']==1) {
 			return $cacheFile;
+		}
 		if($cacheFile!='' && file_exists($cachePath)) {
 			if($arImageSize=getimagesize($cachePath)) {
 				list($width, $height, $type, $attr) = $arImageSize;
@@ -198,5 +122,109 @@ class Pic {
 			return $res;
 		}
 		return '';
+	}
+
+	public function Resize() {
+		if(!$this->getIsInitialized())
+			return '';
+		try {
+			$arParams=$this->getParams();
+			$sAbsoluteFilePath=$this->sSiteRoot.$arParams['src'];
+			if(!file_exists($sAbsoluteFilePath) || !is_file($sAbsoluteFilePath)) {
+				throw new Exception('File not found: '.$arParams['src']);
+			}
+			$sSizeFile=$this->getHash($arParams);
+			$cacheDir=$this->sCachePath.$arParams['src'].'/';
+			$cacheFile=$this->sCacheUrl.$arParams['src'].'/'.$sSizeFile.'.'.$arParams['type'];
+			$cachePath=$this->sCachePath.$arParams['src'].'/'.$sSizeFile.'.'.$arParams['type'];
+			if(!file_exists($cachePath) || filemtime($cachePath)<filemtime($sAbsoluteFilePath)) {
+				//Такой файл не был закеширован или кэш старше чем сам файл, значит надо его создавать
+				$obImage=new CImageResizer($sAbsoluteFilePath);
+				if(isset($arParams['wm'])) {
+					$sAbsoluteWatermarkFilePath=$this->sSiteRoot.$arParams['wm'];
+					if(file_exists($sAbsoluteWatermarkFilePath) && is_file($sAbsoluteWatermarkFilePath)) {
+						//Watermark
+						if(isset($arParams['wm_pos']) && isset($arParams['wm_padding']))
+							$obWM=new CWatermarkImageGenerator($sAbsoluteWatermarkFilePath,$arParams['wm_pos'],$arParams['wm_padding']);
+						elseif(isset($arParams['wm_pos']))
+							$obWM=new CWatermarkImageGenerator($sAbsoluteWatermarkFilePath,$arParams['wm_pos']);
+						else
+							$obWM=new CWatermarkImageGenerator($sAbsoluteWatermarkFilePath);
+						$obImage=new CImageResizerWaterMark($obImage,$obWM);
+					}
+				}
+				if($arParams['width']=='' && $arParams['height']=='') {
+					$obMode=new CScaleCopy(0,0);
+				} else {
+					$obMode=new CScale(intval($arParams['width']),intval($arParams['height']));
+					switch($arParams['mode']) {
+						case 'stretch':
+							$obMode=new CRectGenerator(intval($arParams['width']),intval($arParams['height']));
+							break;
+						case 'crop':
+							$obMode=new CCropToCenter(intval($arParams['width']),intval($arParams['height']));
+							break;
+						case 'croptop':
+							$obMode=new CCropToTop(intval($arParams['width']),intval($arParams['height']));
+							break;
+						case 'fields':
+							$obMode=new CFieldsCrop(intval($arParams['width']),intval($arParams['height']));
+							if(isset($arParams['fPosition'])) {
+								$obMode->setPosition($arParams['fPosition']);
+							}
+							break;
+						case 'maxField':
+							$obMode=new CMaxField(intval($arParams['width']),intval($arParams['height']));
+							break;
+						case 'hexagon':
+							$obMode=new CCropToTop(intval($arParams['width']),intval($arParams['height']));
+							$obImage=new CImageResizerHex($obImage);
+							if(isset($arParams['angle'])) {
+								$obImage->setAngle($arParams['angle']);
+							} else {
+								$obImage->setAngle(0);
+							}
+							if(isset($arParams['border'])) {
+								$obImage->setBorderWidth($arParams['border']);
+							}
+							if(isset($arParams['borderColor'])) {
+								$obImage->setBorderColor($arParams['borderColor']);
+							}
+							break;
+					}
+					if(isset($arParams['bgcolor'])) {
+						$obImage->SetBackgroundColor($arParams['bgcolor']);
+					} else {
+						$obImage->SetBackgroundColor(0,0,0);
+					}
+				}
+				if($obImage->Resize($obMode)) {
+					if(!file_exists($cacheDir)) {
+						if(!@mkdir($cacheDir,0755,true)) return '';
+					}
+					if($obImage->Save($cachePath,$arParams['type'],$arParams['quality'])) {
+						chmod($cachePath,0655);
+					} else {
+						throw new Exception('SYSTEM_CANT_SAVE');
+					}
+				} else {
+					throw new Exception('SYSTEM_CANT_RESIZE');
+				}
+			}
+			return $this->processResult($cacheFile,$cachePath,$arParams);
+		} catch (Exception $e) {
+			$this->modx->log(xPDO::LOG_LEVEL_ERROR,'system',$e->getMessage());
+			if(isset($arParams['default']) && $arParams['default']!='') {
+				$cacheFile=$arParams['default'];
+				$cachePath=$this->sSiteRoot.$cacheFile;
+			} elseif($this->sDefaultImg!='') {
+				$cacheFile=$this->sDefaultImg;
+				$cachePath=$this->sSiteRoot.$cacheFile;
+			} else {
+				$cacheFile='';
+				$cachePath='';
+			}
+			return $this->processResult($cacheFile,$cachePath,$arParams);
+		}
 	}
 }

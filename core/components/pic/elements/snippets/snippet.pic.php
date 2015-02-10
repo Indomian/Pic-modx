@@ -7,9 +7,12 @@
  * height - высота
  * mode - режим ресайза
  * default - изображение по умолчанию
+ * type - вид вывода - png или jpg
  * Пример вызова:
  * [[Pic?src=`/[[+tv.image]]`&width=132&height=132&mode=crop]]
  * @author Blade39 <blade39@yandex.ru>
+ *
+ * @var array $scriptProperties
  */
 if(!class_exists('Pic')) {
 	$modelPath = $modx->getOption('core_path').'components/pic/model/';
